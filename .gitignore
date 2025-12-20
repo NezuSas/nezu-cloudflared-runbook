@@ -1,0 +1,4 @@
+# Secrets / local overrides
+.env
+*.env
+cloudflared.env
