@@ -1,44 +1,70 @@
-# NEZU Cloudflared Runbook (MiniPC)
+<div align="center">
+  <img src=".github/banner.svg" alt="NEZU · Runbook para Cloudflare Tunnel en una MiniPC" width="100%">
+</div>
 
-Este repositorio contiene un **runbook ejecutable** para replicar el **Paso 13** (Cloudflare Tunnel con `cloudflared` + systemd + sysctl QUIC) en una nueva mini-PC.
+# Cloudflare Tunnel en una MiniPC
+
+Runbook **ejecutable** para dar acceso remoto seguro a una MiniPC instalada en casa de un cliente, sin abrir puertos en su router: instala `cloudflared`, lo deja como servicio de systemd y ajusta el kernel para QUIC. Es el paso que NEZU repite en cada appliance nuevo, convertido en un script para que salga igual todas las veces.
+
+El repositorio no contiene secretos. El token del túnel se inyecta por variable de entorno en el momento de instalar y queda solo en el host.
 
 ## Requisitos
-- Debian/Ubuntu con `apt`
-- Acceso con usuario con permisos sudo
-- Un **Tunnel Token** válido (Cloudflare Zero Trust)
 
-## Uso rápido
+- Debian o Ubuntu con `apt`.
+- Usuario con `sudo`.
+- Un **token de túnel** válido de Cloudflare Zero Trust.
 
-1) Clonar el repo:
+## Uso
+
 ```bash
-git clone <TU_URL_PRIVADA_DEL_REPO>
+git clone https://github.com/NezuSas/nezu-cloudflared-runbook.git
 cd nezu-cloudflared-runbook
 ```
 
-2) Exportar el token (NO lo guardes en Git):
+Exporta el token solo en la sesión actual. No lo escribas en ningún archivo del repositorio:
+
 ```bash
-export TUNNEL_TOKEN='PEGA_AQUI_EL_TOKEN'
+export TUNNEL_TOKEN='<token del túnel>'
 ```
 
-3) Ejecutar el instalador:
+Instala y arranca el servicio:
+
 ```bash
 sudo -E bash scripts/setup-cloudflared.sh
 ```
 
-4) Validar:
+Comprueba:
+
 ```bash
 systemctl status cloudflared --no-pager
 sudo journalctl -u cloudflared -n 50 --no-pager
 ```
 
+## Qué hace el script
+
+1. Instala `cloudflared` con `apt` y crea el usuario y los directorios del servicio.
+2. Guarda el token en `/etc/cloudflared/cloudflared.env` con permisos `0640` y propietario `root:cloudflared`.
+3. Registra y habilita el servicio `cloudflared` en systemd, con reinicio automático.
+4. Aplica los ajustes de `sysctl` que recomienda Cloudflare para QUIC.
+
+El detalle paso a paso, para hacerlo a mano o auditarlo, está en [`docs/STEP13.md`](docs/STEP13.md).
+
+## Estructura
+
+```text
+scripts/setup-cloudflared.sh         instalación y configuración del servicio
+templates/cloudflared.env.template   plantilla del archivo de entorno, sin token
+docs/STEP13.md                       runbook documentado
+```
+
 ## Seguridad
-- Mantén este repo **privado**.
-- No subas tokens, credenciales ni secretos a Git.
-- El token se inyecta como variable de entorno y se guarda en el host en:
-  - `/etc/cloudflared/cloudflared.env` (permisos 0640, root:cloudflared)
 
-## Archivos
-- `scripts/setup-cloudflared.sh`: instala y configura `cloudflared` como servicio.
-- `templates/cloudflared.env.template`: plantilla de env (sin token real).
-- `docs/STEP13.md`: runbook documentado.
+- Nunca confirmes tokens, credenciales ni archivos `.env` con valores reales.
+- El token da acceso al túnel: trátalo como una contraseña y rótalo si se expone.
+- La ruta pública la define el túnel en el panel de Cloudflare; este script no abre nada hacia internet por sí mismo.
 
+---
+
+<div align="center">
+  <sub>Parte del ecosistema <a href="https://github.com/NezuSas">NEZU</a> · <a href="https://nezuecuador.com">nezuecuador.com</a> · © NEZU S.A.S. Publicado para clientes e integradores de NEZU.</sub>
+</div>
