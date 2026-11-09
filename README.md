@@ -67,8 +67,12 @@ docs/STEP13.md                       runbook documentado
 
 Este runbook es gratuito: lo publicamos porque es el que usamos en nuestros propios equipos. Si quieres acceso remoto seguro a tus equipos sin abrir puertos y prefieres que lo montemos y lo mantengamos nosotros, [cuéntanos qué necesitas](https://nezuecuador.com/es/contacto) y te respondemos con una propuesta concreta. Aquí está [lo que hacemos](https://nezuecuador.com/es/servicios).
 
+## Licencia
+
+Apache 2.0: puedes usar, modificar y redistribuir este código, también en proyectos comerciales, conservando el aviso de copyright. La licencia no concede derechos sobre la marca NEZU. Texto completo en [LICENSE](LICENSE).
+
 ---
 
 <div align="center">
-  <sub>Parte del ecosistema <a href="https://github.com/NezuSas">NEZU</a> · <a href="https://nezuecuador.com">nezuecuador.com</a> · © NEZU S.A.S. Publicado para clientes e integradores de NEZU.</sub>
+  <sub>Parte del ecosistema <a href="https://github.com/NezuSas">NEZU</a> · <a href="https://nezuecuador.com">nezuecuador.com</a> · © NEZU S.A.S. · Licencia Apache 2.0.</sub>
 </div>
