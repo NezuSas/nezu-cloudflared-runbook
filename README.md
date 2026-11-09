@@ -63,6 +63,10 @@ docs/STEP13.md                       runbook documentado
 - El token da acceso al túnel: trátalo como una contraseña y rótalo si se expone.
 - La ruta pública la define el túnel en el panel de Cloudflare; este script no abre nada hacia internet por sí mismo.
 
+## ¿Lo necesitas en tu instalación?
+
+Este runbook es gratuito: lo publicamos porque es el que usamos en nuestros propios equipos. Si quieres acceso remoto seguro a tus equipos sin abrir puertos y prefieres que lo montemos y lo mantengamos nosotros, [cuéntanos qué necesitas](https://nezuecuador.com/es/contacto) y te respondemos con una propuesta concreta. Aquí está [lo que hacemos](https://nezuecuador.com/es/servicios).
+
 ---
 
 <div align="center">
