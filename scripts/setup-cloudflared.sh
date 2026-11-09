@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# NEZU - Cloudflared tunnel runbook (Paso 13)
+# NEZU - Cloudflare Tunnel en una MiniPC (ver docs/manual.md para el detalle de cada paso)
 # Objetivo: instalar cloudflared, crear usuario/dirs, guardar token en /etc/cloudflared/cloudflared.env,
 # crear servicio systemd, aplicar sysctl QUIC y arrancar el servicio.
 #

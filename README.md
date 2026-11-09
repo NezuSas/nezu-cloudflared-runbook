@@ -4,6 +4,8 @@
 
 # Cloudflare Tunnel en una MiniPC
 
+> **In English.** An executable runbook that installs `cloudflared` as a hardened systemd service on a Debian or Ubuntu mini PC, with the QUIC kernel tuning Cloudflare recommends, so a device in a customer's home is reachable without opening router ports. Includes a step-by-step manual, troubleshooting and an uninstaller. Apache 2.0.
+
 Runbook **ejecutable** para dar acceso remoto seguro a una MiniPC instalada en casa de un cliente, sin abrir puertos en su router: instala `cloudflared`, lo deja como servicio de systemd y ajusta el kernel para QUIC. Es el paso que NEZU repite en cada appliance nuevo, convertido en un script para que salga igual todas las veces.
 
 El repositorio no contiene secretos. El token del túnel se inyecta por variable de entorno en el momento de instalar y queda solo en el host.
@@ -12,7 +14,7 @@ El repositorio no contiene secretos. El token del túnel se inyecta por variable
 
 - Debian o Ubuntu con `apt`.
 - Usuario con `sudo`.
-- Un **token de túnel** válido de Cloudflare Zero Trust.
+- Un **token de túnel** válido de Cloudflare Zero Trust. Cómo crearlo, en [`docs/manual.md`](docs/manual.md#0-obtener-el-token-del-túnel).
 
 ## Uso
 
@@ -47,14 +49,32 @@ sudo journalctl -u cloudflared -n 50 --no-pager
 3. Registra y habilita el servicio `cloudflared` en systemd, con reinicio automático.
 4. Aplica los ajustes de `sysctl` que recomienda Cloudflare para QUIC.
 
-El detalle paso a paso, para hacerlo a mano o auditarlo, está en [`docs/STEP13.md`](docs/STEP13.md).
+El detalle paso a paso, para hacerlo a mano o auditarlo, está en [`docs/manual.md`](docs/manual.md), junto con la obtención del token, los problemas frecuentes y cómo rotarlo.
+
+## Desinstalar
+
+```bash
+sudo bash scripts/uninstall-cloudflared.sh          # detiene el servicio y borra token, unidad y sysctl
+sudo bash scripts/uninstall-cloudflared.sh --purge  # además desinstala el paquete y el usuario
+```
+
+## Problemas frecuentes
+
+| Síntoma | Qué hacer |
+|---|---|
+| `Invalid tunnel secret` | El token está incompleto o es de otro túnel: vuelve a copiarlo y reescribe `/etc/cloudflared/cloudflared.env`. |
+| Tarda en conectar y los registros hablan de `quic` | La red bloquea UDP 7844: añade `--protocol http2` al `ExecStart` y reinicia. |
+| Túnel HEALTHY pero el nombre público da 502 | El servicio local no responde donde dice Public Hostname: prueba `curl -I http://localhost:8080` en el equipo. |
+
+Más casos y su explicación, en el [manual](docs/manual.md#problemas-frecuentes).
 
 ## Estructura
 
 ```text
 scripts/setup-cloudflared.sh         instalación y configuración del servicio
+scripts/uninstall-cloudflared.sh     desinstalación limpia
 templates/cloudflared.env.template   plantilla del archivo de entorno, sin token
-docs/STEP13.md                       runbook documentado
+docs/manual.md                       manual paso a paso, token, problemas y rotación
 ```
 
 ## Seguridad
