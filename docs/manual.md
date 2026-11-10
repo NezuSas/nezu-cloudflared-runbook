@@ -15,18 +15,26 @@ Un servicio `cloudflared` que mantiene una conexión saliente permanente con Clo
 
 El token identifica al conector: trátalo como una contraseña. No lo pegues en archivos del repositorio, chats ni capturas.
 
-## 1. Instalar cloudflared
+## 1. Añadir el repositorio de Cloudflare
+
+El paquete `cloudflared` no está en Debian ni en Ubuntu: viene del repositorio de paquetes de Cloudflare, firmado con su clave.
+
+```bash
+sudo apt-get install -y curl ca-certificates
+sudo curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg
+echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' \
+  | sudo tee /etc/apt/sources.list.d/cloudflared.list
+```
+
+## 2. Instalar cloudflared
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y cloudflared
+cloudflared --version
 ```
 
-Si `apt` no encuentra el paquete, añade el repositorio oficial de Cloudflare siguiendo [su guía](https://pkg.cloudflare.com/) y repite el paso.
-
-## 2. Unificar el binario
-
-Algunas instalaciones antiguas dejaron una copia en `/usr/local/bin`. Para que `systemd` y la terminal usen el mismo:
+Algunas instalaciones antiguas dejaron una copia en `/usr/local/bin`. Para que `systemd` y la terminal usen el mismo binario:
 
 ```bash
 sudo rm -f /usr/local/bin/cloudflared
@@ -67,22 +75,28 @@ Wants=network-online.target
 [Service]
 Type=notify
 EnvironmentFile=/etc/cloudflared/cloudflared.env
-ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run --token ${TUNNEL_TOKEN}
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run
 Restart=on-failure
 RestartSec=5s
-TimeoutStartSec=30
+TimeoutStartSec=0
 User=cloudflared
 Group=cloudflared
 NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target
 EOF'
 sudo systemctl daemon-reload
-sudo systemctl enable --now cloudflared
 ```
 
-`--no-autoupdate` evita que el binario se actualice solo en casa del cliente; las actualizaciones llegan con `apt` cuando tú decidas. `Restart=on-failure` lo levanta si se cae; al reiniciar el equipo arranca solo.
+Fíjate en que `ExecStart` no lleva `--token`: `cloudflared` lee el token de la variable `TUNNEL_TOKEN` que systemd le pasa desde el archivo de entorno. Si fuera un argumento, cualquier usuario del equipo lo vería con `ps` o `systemctl status`. Por la misma vía se puede fijar `TUNNEL_TRANSPORT_PROTOCOL=http2` cuando la red bloquea QUIC (ver problemas frecuentes).
+
+`--no-autoupdate` evita que el binario se actualice solo en casa del cliente; las actualizaciones llegan con `apt` cuando tú decidas. `Restart=on-failure` lo levanta si se cae y al reiniciar el equipo arranca solo. `TimeoutStartSec=0` es lo que usa el instalador oficial de Cloudflare: con redes lentas, el aviso de arranque puede tardar más de medio minuto. Las tres líneas `Protect*`/`PrivateTmp` limitan lo que el proceso puede tocar del sistema; el túnel solo necesita salir a la red.
+
+El servicio se arranca en el paso siguiente, después del ajuste de kernel, para no reiniciarlo dos veces.
 
 ## 6. Ajustes de kernel para QUIC
 
@@ -97,11 +111,11 @@ net.core.rmem_default=2621440
 net.core.wmem_default=2621440
 ```
 
-Aplica y reinicia el servicio:
+Aplica y arranca el servicio:
 
 ```bash
 sudo sysctl --system
-sudo systemctl restart cloudflared
+sudo systemctl enable --now cloudflared
 ```
 
 ## 7. Comprobar
@@ -118,7 +132,8 @@ En los registros debe aparecer `Registered tunnel connection` varias veces (una 
 | Síntoma | Causa y solución |
 |---|---|
 | `Unauthorized: Invalid tunnel secret` o `failed to parse token` | El token está incompleto o pertenece a otro túnel. Vuelve a copiarlo del panel y reescribe `/etc/cloudflared/cloudflared.env`. |
-| Registros con `failed to dial to edge ... quic` y el túnel tarda en conectar | La red del cliente bloquea UDP 7844. Fuerza HTTP/2 añadiendo `--protocol http2` al `ExecStart` y reinicia el servicio. |
+| `E: Unable to locate package cloudflared` | Falta el repositorio de Cloudflare (paso 1). El script lo añade solo; a mano, repite el paso 1 y luego `sudo apt-get update`. |
+| Registros con `failed to dial to edge ... quic` y el túnel tarda en conectar | La red del cliente bloquea UDP 7844. Añade la línea `TUNNEL_TRANSPORT_PROTOCOL=http2` a `/etc/cloudflared/cloudflared.env` y reinicia el servicio; no hace falta tocar la unidad. |
 | `failed to sufficiently increase receive buffer size` | Falta el paso 6 o no se aplicó: `sudo sysctl --system`. Es un aviso, no un fallo. |
 | El túnel está HEALTHY pero el nombre público da **502** | El servicio local no responde en la dirección configurada en Public Hostname. Prueba desde el propio equipo con `curl -I http://localhost:8080`. |
 | El servicio no arranca tras un reinicio | `systemctl is-enabled cloudflared` debe decir `enabled`. Si la red tarda, `After=network-online.target` ya lo contempla; revisa `journalctl -b -u cloudflared`. |
@@ -132,7 +147,7 @@ Si el token se expuso: en el panel, **Tunnels → el túnel → Refresh token**,
 
 ```bash
 sudo bash scripts/uninstall-cloudflared.sh          # quita servicio, token y sysctl
-sudo bash scripts/uninstall-cloudflared.sh --purge  # además desinstala el paquete y el usuario
+sudo bash scripts/uninstall-cloudflared.sh --purge  # además desinstala el paquete, el usuario y el repositorio
 ```
 
 Después, borra el túnel en el panel de Cloudflare para que el nombre público deje de existir.

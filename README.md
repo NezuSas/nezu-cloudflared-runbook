@@ -44,18 +44,20 @@ sudo journalctl -u cloudflared -n 50 --no-pager
 
 ## Qué hace el script
 
-1. Instala `cloudflared` con `apt` y crea el usuario y los directorios del servicio.
-2. Guarda el token en `/etc/cloudflared/cloudflared.env` con permisos `0640` y propietario `root:cloudflared`.
-3. Registra y habilita el servicio `cloudflared` en systemd, con reinicio automático.
-4. Aplica los ajustes de `sysctl` que recomienda Cloudflare para QUIC.
+1. Añade el repositorio de paquetes de Cloudflare (el paquete no está en Debian ni en Ubuntu) e instala `cloudflared`.
+2. Crea el usuario `cloudflared`, sin shell, y el directorio `/etc/cloudflared`.
+3. Guarda el token en `/etc/cloudflared/cloudflared.env` con permisos `0640` y propietario `root:cloudflared`. El servicio lo lee de ahí como variable de entorno: nunca aparece en la línea de comandos ni en `ps`.
+4. Registra el servicio en systemd con reinicio automático y el proceso acotado (`NoNewPrivileges`, `ProtectSystem`, `ProtectHome`, `PrivateTmp`).
+5. Aplica los ajustes de `sysctl` que recomienda Cloudflare para QUIC y arranca el servicio.
+6. Espera a que los registros confirmen `Registered tunnel connection`; si no llega en 30 segundos, muestra el estado y termina con error.
 
-El detalle paso a paso, para hacerlo a mano o auditarlo, está en [`docs/manual.md`](docs/manual.md), junto con la obtención del token, los problemas frecuentes y cómo rotarlo.
+Se puede volver a ejecutar las veces que haga falta: cada paso deja el equipo igual si ya estaba hecho. El detalle, para hacerlo a mano o auditarlo, está en [`docs/manual.md`](docs/manual.md), junto con la obtención del token, los problemas frecuentes y cómo rotarlo.
 
 ## Desinstalar
 
 ```bash
 sudo bash scripts/uninstall-cloudflared.sh          # detiene el servicio y borra token, unidad y sysctl
-sudo bash scripts/uninstall-cloudflared.sh --purge  # además desinstala el paquete y el usuario
+sudo bash scripts/uninstall-cloudflared.sh --purge  # además desinstala el paquete, el usuario y el repositorio
 ```
 
 ## Problemas frecuentes
@@ -63,7 +65,7 @@ sudo bash scripts/uninstall-cloudflared.sh --purge  # además desinstala el paqu
 | Síntoma | Qué hacer |
 |---|---|
 | `Invalid tunnel secret` | El token está incompleto o es de otro túnel: vuelve a copiarlo y reescribe `/etc/cloudflared/cloudflared.env`. |
-| Tarda en conectar y los registros hablan de `quic` | La red bloquea UDP 7844: añade `--protocol http2` al `ExecStart` y reinicia. |
+| Tarda en conectar y los registros hablan de `quic` | La red bloquea UDP 7844: añade `TUNNEL_TRANSPORT_PROTOCOL=http2` a `/etc/cloudflared/cloudflared.env` y reinicia el servicio. |
 | Túnel HEALTHY pero el nombre público da 502 | El servicio local no responde donde dice Public Hostname: prueba `curl -I http://localhost:8080` en el equipo. |
 
 Más casos y su explicación, en el [manual](docs/manual.md#problemas-frecuentes).
@@ -75,13 +77,17 @@ scripts/setup-cloudflared.sh         instalación y configuración del servicio
 scripts/uninstall-cloudflared.sh     desinstalación limpia
 templates/cloudflared.env.template   plantilla del archivo de entorno, sin token
 docs/manual.md                       manual paso a paso, token, problemas y rotación
+CHANGELOG.md                         cambios de cada versión
 ```
+
+Los scripts pasan `shellcheck` sin avisos y están escritos como funciones, de modo que cada paso se puede ejecutar y probar por separado; así se comprobó la instalación en un contenedor Debian limpio.
 
 ## Seguridad
 
 - Nunca confirmes tokens, credenciales ni archivos `.env` con valores reales.
-- El token da acceso al túnel: trátalo como una contraseña y rótalo si se expone.
+- El token da acceso al túnel: trátalo como una contraseña y rótalo si se expone. En el equipo solo lo lee `root` y el grupo `cloudflared`, y nunca viaja como argumento del proceso.
 - La ruta pública la define el túnel en el panel de Cloudflare; este script no abre nada hacia internet por sí mismo.
+- El paquete se instala desde el repositorio oficial de Cloudflare, firmado con su clave, nunca desde un binario descargado a mano.
 
 ## ¿Lo necesitas en tu instalación?
 
