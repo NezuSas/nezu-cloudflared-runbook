@@ -1,0 +1,4 @@
+# Los scripts se copian a equipos Linux: siempre con finales de línea LF, se clonen donde se clonen.
+* text=auto
+*.sh text eol=lf
+*.template text eol=lf
