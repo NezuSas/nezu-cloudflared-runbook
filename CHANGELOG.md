@@ -2,6 +2,19 @@
 
 Formato de [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versiones según [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Añadido
+
+- Sección 8 del manual, «Acceso por SSH con Cloudflare Access»: publicar el SSH en el túnel con `ssh://localhost:22`, crear la aplicación de Access con una política por correo, activar «Protect with Access» con la etiqueta AUD, conectarse desde el PC con `cloudflared access ssh` en `~/.ssh/config`, verificar la huella del equipo y comprobar que Access está delante. Resumen y enlace en el README.
+- El manual y el README dicen que el runbook funciona en x86_64 y arm64, probado en una Raspberry Pi 4 con Ubuntu 26.04.
+- Problemas frecuentes nuevos: «Falta TUNNEL_TOKEN» con `sudo -E`, «websocket: bad handshake» por publicar el SSH como `http://`, la etiqueta AUD que no se añade sin Enter, la huella desconocida en la primera conexión y el bloqueo de `ufw limit` tras varias conexiones seguidas.
+
+### Cambiado
+
+- El manual explica el panel nuevo de Cloudflare («Published application»), donde el tipo de servicio va al principio de la URL, y usa `sudo --preserve-env=TUNNEL_TOKEN` también en la forma de ejecutar el script.
+- Desinstalar recuerda borrar la aplicación de Access y la configuración SSH del PC cuando se dio acceso por SSH.
+
 ## [1.0.1] - 2026-11-10
 
 ### Corregido

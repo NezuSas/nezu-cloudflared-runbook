@@ -2,6 +2,19 @@
 
 Este documento hace a mano, y explica, lo mismo que `scripts/setup-cloudflared.sh` hace de una vez. Sirve para auditar el script, para equipos donde no se quiera ejecutar nada sin leerlo, o para entender qué queda instalado.
 
+Para usar el script en lugar de los pasos a mano:
+
+```bash
+export TUNNEL_TOKEN='<token del túnel>'
+sudo --preserve-env=TUNNEL_TOKEN bash scripts/setup-cloudflared.sh
+```
+
+`--preserve-env=TUNNEL_TOKEN` pasa a root solo el token. No uses `sudo -E`: el `sudo-rs` que trae Ubuntu 26.04 lo ignora sin avisar y el script se detiene con «Falta TUNNEL_TOKEN».
+
+Funciona en equipos x86_64 y arm64. Cloudflare publica `cloudflared` para ambas arquitecturas en su repositorio, y el runbook se probó completo en una Raspberry Pi 4 con Ubuntu 26.04.
+
+La sección 8 explica cómo dar también acceso por SSH al equipo, protegido con Cloudflare Access.
+
 ## Qué consigues
 
 Un servicio `cloudflared` que mantiene una conexión saliente permanente con Cloudflare. Cloudflare publica el nombre que tú elijas (por ejemplo `casa.ejemplo.com`) y lo encamina por esa conexión hacia el servicio local que indiques (por ejemplo `http://localhost:8080`). El router del cliente no abre ningún puerto; el equipo solo hace conexiones de salida.
@@ -11,7 +24,11 @@ Un servicio `cloudflared` que mantiene una conexión saliente permanente con Clo
 1. Entra en [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) con la cuenta que administra el dominio.
 2. **Networks → Tunnels → Create a tunnel**, tipo **Cloudflared**. Ponle el nombre del cliente o del equipo.
 3. En la pantalla de instalación, Cloudflare muestra un comando con `--token eyJ…`. Copia **solo el token** (la cadena larga que empieza por `eyJ`). Ese es `TUNNEL_TOKEN`.
-4. En **Public Hostname**, añade el nombre público y el servicio local al que debe llegar, por ejemplo `http://localhost:8080`. Esto se puede cambiar después sin tocar el equipo.
+4. Publica el servicio local en el túnel. Según la versión del panel, la opción se llama **Public Hostname** o **Published application**. Rellena:
+   - **Subdomain** y **Domain**: el nombre público, por ejemplo `casa` en `ejemplo.com`.
+   - **Service URL**, o **Type** y **URL** en el panel antiguo: el servicio local, por ejemplo `http://localhost:8080`.
+
+   En el panel nuevo no hay un desplegable de tipo: el tipo va al principio de la URL. `http://` publica una página web; `ssh://` publica el SSH del equipo (sección 8). Esto se puede cambiar después sin tocar el equipo.
 
 El token identifica al conector: trátalo como una contraseña. No lo pegues en archivos del repositorio, chats ni capturas.
 
@@ -127,6 +144,73 @@ sudo journalctl -u cloudflared -n 50 --no-pager
 
 En los registros debe aparecer `Registered tunnel connection` varias veces (una por cada centro de datos al que se conecta). En el panel de Cloudflare, el túnel pasa a **HEALTHY**. Abre el nombre público desde fuera de la red del cliente para confirmar que llega al servicio local.
 
+## 8. Acceso por SSH con Cloudflare Access (opcional)
+
+El mismo túnel puede dar acceso por SSH al equipo desde cualquier red, sin abrir el puerto 22 en el router. El SSH nunca debe publicarse sin **Access** delante: sin él, cualquiera que conozca el nombre llega a la pantalla de contraseña del equipo.
+
+Quedan tres capas: Access exige iniciar sesión con una identidad autorizada, el túnel comprueba en el propio equipo el token que firma Access, y SSH sigue pidiendo su clave o contraseña.
+
+### 8.1 Publicar el SSH en el túnel
+
+En el túnel, añade otra aplicación publicada:
+
+- **Subdomain** y **Domain**: por ejemplo `ssh-casa` en `ejemplo.com`.
+- **Service URL**: `ssh://localhost:22`. Con `http://localhost:22` la conexión falla: Cloudflare le hablaría en web al servidor SSH (ver problemas frecuentes).
+
+Guarda con el interruptor **Protect with Access** apagado; se activa en el paso 8.3, cuando la aplicación de Access ya existe.
+
+### 8.2 Crear la aplicación de Access
+
+En Zero Trust, **Access → Applications → Add an application → Self-hosted**:
+
+1. **Public hostnames**: el mismo nombre del paso 8.1, por ejemplo `ssh-casa` en `ejemplo.com`, sin ruta.
+2. **Browser rendering**: déjalo en **Off** si se va a entrar desde una terminal.
+3. **Access policies**: una política **Allow** cuya regla **Include** sea **Emails** con los correos autorizados. Puedes reutilizar una política existente con **Add current policies**.
+4. **Authentication**: deja **Accept all available identity providers**. Con un solo método de inicio de sesión, **Apply instant authentication** evita elegirlo cada vez.
+5. **Details**: un nombre reconocible, por ejemplo «SSH casa». La duración de sesión de 24 horas es razonable.
+6. Guarda. Abre la aplicación y copia su **Application Audience (AUD) Tag**, una cadena de 64 caracteres; está en la vista general o en **Additional settings**.
+
+Desde este momento, quien abra el nombre sin sesión acaba en la pantalla de inicio de sesión de Cloudflare.
+
+### 8.3 Proteger el túnel con Access
+
+Vuelve a la aplicación publicada del paso 8.1, abre **Access** dentro de sus ajustes adicionales y activa **Protect with Access**:
+
+- **Team name**: el nombre de tu equipo de Zero Trust, la parte inicial de `<equipo>.cloudflareaccess.com`.
+- **Application Audience (AUD) tag**: pega la etiqueta del paso 8.2 y **pulsa Enter**. Debe quedar como una pastilla; si solo la pegas, el panel responde «Add at least one AUD tag when Protect with Access is on» y no guarda.
+
+Guarda los cambios. El equipo recibe la configuración en unos segundos, sin reiniciar nada.
+
+### 8.4 Conectarse desde el PC
+
+En el PC desde el que entras hace falta `cloudflared`: en Windows, el instalador de Cloudflare o `winget install --id Cloudflare.cloudflared`; en Linux y macOS, el paquete de su repositorio o Homebrew. Después, añade una entrada a `~/.ssh/config`. En Windows:
+
+```text
+Host casa-ssh
+  HostName ssh-casa.ejemplo.com
+  User <usuario del equipo>
+  ProxyCommand "C:\Program Files (x86)\cloudflared\cloudflared.exe" access ssh --hostname ssh-casa.ejemplo.com
+```
+
+En Linux y macOS, la misma entrada con `ProxyCommand cloudflared access ssh --hostname %h`. Si usas una clave concreta, añade `IdentityFile` e `IdentitiesOnly yes`.
+
+La primera vez, `ssh casa-ssh` abre el navegador para iniciar sesión en Access; si no se abre, la terminal muestra el enlace. La sesión queda guardada en `~/.cloudflared/` durante lo que dure la sesión de la aplicación, 24 horas en el ejemplo.
+
+### 8.5 Verificar la huella del equipo
+
+En la primera conexión SSH pregunta si confías en la huella del servidor, porque el nombre es nuevo para tu PC. No la aceptes a ciegas:
+
+- Si ya entrabas al equipo por la red local, su huella está en `~/.ssh/known_hosts` con la IP local. Es el mismo servidor, así que puedes copiar esa línea cambiando la IP por el nombre del túnel.
+- Si no, compárala con la que muestra el propio equipo: `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`.
+
+### 8.6 Comprobar
+
+```bash
+ssh casa-ssh hostname
+```
+
+Debe responder el nombre del equipo. Sin sesión de Access, `curl -I https://ssh-casa.ejemplo.com` devuelve una redirección (302) a `<equipo>.cloudflareaccess.com`: es la prueba de que Access está delante.
+
 ## Problemas frecuentes
 
 | Síntoma | Causa y solución |
@@ -138,6 +222,11 @@ En los registros debe aparecer `Registered tunnel connection` varias veces (una 
 | El túnel está HEALTHY pero el nombre público da **502** | El servicio local no responde en la dirección configurada en Public Hostname. Prueba desde el propio equipo con `curl -I http://localhost:8080`. |
 | El servicio no arranca tras un reinicio | `systemctl is-enabled cloudflared` debe decir `enabled`. Si la red tarda, `After=network-online.target` ya lo contempla; revisa `journalctl -b -u cloudflared`. |
 | Hay dos `cloudflared` corriendo | Una instalación anterior dejó otro servicio (por ejemplo `cloudflared-<nombre>`). Lista con `systemctl list-units 'cloudflared*'` y deshabilita el sobrante. |
+| `ERROR: Falta TUNNEL_TOKEN` aunque el token esté exportado | Se usó `sudo -E` en un sistema con `sudo-rs` (Ubuntu 26.04 y posteriores), que ignora `-E`. Ejecuta `sudo --preserve-env=TUNNEL_TOKEN bash scripts/setup-cloudflared.sh`. |
+| `websocket: bad handshake` al hacer `ssh`, y en el equipo `malformed HTTP status` en `journalctl -u cloudflared` | El nombre del SSH está publicado como `http://localhost:22`. Cámbialo a `ssh://localhost:22` en el panel (sección 8.1). |
+| «Add at least one AUD tag when Protect with Access is on» | La etiqueta AUD se pegó pero no se añadió: haz clic en el campo, pega y pulsa Enter hasta que quede como pastilla (sección 8.3). |
+| `Host key verification failed` en la primera conexión por el túnel | Tu PC no conoce aún la huella con el nombre nuevo. Verifícala y añádela (sección 8.5). |
+| El SSH por la red local deja de responder tras varios intentos seguidos | Si el equipo tiene `ufw limit` en el puerto 22, bloquea más de seis conexiones en 30 segundos, y cada reintento alarga el bloqueo. Espera un minuto sin intentar nada y agrupa las órdenes en una sola conexión. |
 
 ## Rotar el token
 
@@ -150,4 +239,4 @@ sudo bash scripts/uninstall-cloudflared.sh          # quita servicio, token y sy
 sudo bash scripts/uninstall-cloudflared.sh --purge  # además desinstala el paquete, el usuario y el repositorio
 ```
 
-Después, borra el túnel en el panel de Cloudflare para que el nombre público deje de existir.
+Después, borra el túnel en el panel de Cloudflare para que el nombre público deje de existir. Si diste acceso por SSH, borra también su aplicación de Access y quita la entrada de `~/.ssh/config` y la línea de su nombre en `~/.ssh/known_hosts` del PC.

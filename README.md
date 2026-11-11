@@ -12,7 +12,7 @@ El repositorio no contiene secretos. El token del túnel se inyecta por variable
 
 ## Requisitos
 
-- Debian o Ubuntu con `apt`.
+- Debian o Ubuntu con `apt`, en x86_64 o arm64 (probado en una Raspberry Pi 4 con Ubuntu 26.04).
 - Usuario con `sudo`.
 - Un **token de túnel** válido de Cloudflare Zero Trust. Cómo crearlo, en [`docs/manual.md`](docs/manual.md#0-obtener-el-token-del-túnel).
 
@@ -69,8 +69,13 @@ sudo bash scripts/uninstall-cloudflared.sh --purge  # además desinstala el paqu
 | `Invalid tunnel secret` | El token está incompleto o es de otro túnel: vuelve a copiarlo y reescribe `/etc/cloudflared/cloudflared.env`. |
 | Tarda en conectar y los registros hablan de `quic` | La red bloquea UDP 7844: añade `TUNNEL_TRANSPORT_PROTOCOL=http2` a `/etc/cloudflared/cloudflared.env` y reinicia el servicio. |
 | Túnel HEALTHY pero el nombre público da 502 | El servicio local no responde donde dice Public Hostname: prueba `curl -I http://localhost:8080` en el equipo. |
+| `websocket: bad handshake` al entrar por SSH | El SSH está publicado como `http://localhost:22`: cámbialo a `ssh://localhost:22` en el panel. |
 
 Más casos y su explicación, en el [manual](docs/manual.md#problemas-frecuentes).
+
+## Acceso por SSH
+
+El mismo túnel puede dar acceso por SSH al equipo desde cualquier red, con Cloudflare Access delante y sin abrir el puerto 22. Se publica con `ssh://localhost:22`, se crea una aplicación de Access con los correos autorizados, el túnel comprueba en el propio equipo el token de Access, y en el PC basta una entrada en `~/.ssh/config` con `cloudflared access ssh`. Los pasos, en la [sección 8 del manual](docs/manual.md#8-acceso-por-ssh-con-cloudflare-access-opcional).
 
 ## Estructura
 
@@ -78,7 +83,7 @@ Más casos y su explicación, en el [manual](docs/manual.md#problemas-frecuentes
 scripts/setup-cloudflared.sh         instalación y configuración del servicio
 scripts/uninstall-cloudflared.sh     desinstalación limpia
 templates/cloudflared.env.template   plantilla del archivo de entorno, sin token
-docs/manual.md                       manual paso a paso, token, problemas y rotación
+docs/manual.md                       manual paso a paso, token, SSH con Access, problemas y rotación
 CHANGELOG.md                         cambios de cada versión
 ```
 
