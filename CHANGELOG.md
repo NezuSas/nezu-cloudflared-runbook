@@ -14,6 +14,9 @@ Formato de [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versiones s
 
 - El manual explica el panel nuevo de Cloudflare («Published application»), donde el tipo de servicio va al principio de la URL, y usa `sudo --preserve-env=TUNNEL_TOKEN` también en la forma de ejecutar el script.
 - Desinstalar recuerda borrar la aplicación de Access y la configuración SSH del PC cuando se dio acceso por SSH.
+- El script pide el token sin mostrarlo cuando no llega en `TUNNEL_TOKEN`, y comprueba que empiece por `eyJ` antes de tocar nada. La instalación normal es ahora `sudo bash scripts/setup-cloudflared.sh`, sin `export`: el token ya no queda en el historial de la terminal. La variable sigue sirviendo para instalar sin preguntas.
+- El manual guarda el token a mano sin que pase por la línea de comandos (`read -rs` y `install` desde la entrada estándar), y explica que rotarlo es volver a ejecutar el script.
+- El README se reorganiza en tres pasos (preparar el túnel en Cloudflare, instalar y comprobar), incluye la publicación del servicio, que antes solo estaba en el manual, presenta el acceso por SSH antes de los problemas frecuentes, recuerda borrar el túnel y la aplicación de Access al desinstalar y actualiza el resumen en inglés.
 
 ## [1.0.1] - 2026-11-10
 

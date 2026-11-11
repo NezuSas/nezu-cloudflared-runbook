@@ -5,11 +5,10 @@ Este documento hace a mano, y explica, lo mismo que `scripts/setup-cloudflared.s
 Para usar el script en lugar de los pasos a mano:
 
 ```bash
-export TUNNEL_TOKEN='<token del túnel>'
-sudo --preserve-env=TUNNEL_TOKEN bash scripts/setup-cloudflared.sh
+sudo bash scripts/setup-cloudflared.sh
 ```
 
-`--preserve-env=TUNNEL_TOKEN` pasa a root solo el token. No uses `sudo -E`: el `sudo-rs` que trae Ubuntu 26.04 lo ignora sin avisar y el script se detiene con «Falta TUNNEL_TOKEN».
+El script pide el token sin mostrarlo, así no queda en el historial de la terminal. Para instalar sin preguntas, por ejemplo desde otro script, pásalo en la variable `TUNNEL_TOKEN` con `sudo --preserve-env=TUNNEL_TOKEN bash scripts/setup-cloudflared.sh`, que pasa a root solo esa variable. No uses `sudo -E`: el `sudo-rs` que trae Ubuntu 26.04 lo ignora sin avisar y el token no llega.
 
 Funciona en equipos x86_64 y arm64. Cloudflare publica `cloudflared` para ambas arquitecturas en su repositorio, y el runbook se probó completo en una Raspberry Pi 4 con Ubuntu 26.04.
 
@@ -70,15 +69,16 @@ sudo install -d -m 0750 -o root -g cloudflared /etc/cloudflared
 
 ## 4. Guardar el token
 
-Solo `root` lo escribe y solo el grupo `cloudflared` lo lee:
+Solo `root` lo escribe y solo el grupo `cloudflared` lo lee. El token se pide sin mostrarlo y se escribe en el archivo sin pasar nunca por la línea de comandos, así no queda en el historial ni se ve con `ps`:
 
 ```bash
-sudo bash -c 'umask 077; cat > /etc/cloudflared/cloudflared.env <<EOF
-TUNNEL_TOKEN=<TOKEN_AQUI>
-EOF'
-sudo chown root:cloudflared /etc/cloudflared/cloudflared.env
-sudo chmod 0640 /etc/cloudflared/cloudflared.env
+read -rsp 'Pega el token del túnel y pulsa Enter: ' TUNNEL_TOKEN; echo
+printf 'TUNNEL_TOKEN=%s\n' "$TUNNEL_TOKEN" \
+  | sudo install -m 0640 -o root -g cloudflared /dev/stdin /etc/cloudflared/cloudflared.env
+unset TUNNEL_TOKEN
 ```
+
+`printf` es una orden interna de la shell, así que el token no aparece como argumento de ningún proceso. No escribas el token directamente en un comando como `echo 'TUNNEL_TOKEN=eyJ…'`: quedaría en el historial.
 
 ## 5. Servicio de systemd
 
@@ -222,7 +222,7 @@ Debe responder el nombre del equipo. Sin sesión de Access, `curl -I https://ssh
 | El túnel está HEALTHY pero el nombre público da **502** | El servicio local no responde en la dirección configurada en Public Hostname. Prueba desde el propio equipo con `curl -I http://localhost:8080`. |
 | El servicio no arranca tras un reinicio | `systemctl is-enabled cloudflared` debe decir `enabled`. Si la red tarda, `After=network-online.target` ya lo contempla; revisa `journalctl -b -u cloudflared`. |
 | Hay dos `cloudflared` corriendo | Una instalación anterior dejó otro servicio (por ejemplo `cloudflared-<nombre>`). Lista con `systemctl list-units 'cloudflared*'` y deshabilita el sobrante. |
-| `ERROR: Falta TUNNEL_TOKEN` aunque el token esté exportado | Se usó `sudo -E` en un sistema con `sudo-rs` (Ubuntu 26.04 y posteriores), que ignora `-E`. Ejecuta `sudo --preserve-env=TUNNEL_TOKEN bash scripts/setup-cloudflared.sh`. |
+| `ERROR: Falta el token del túnel` | El script no se ejecutó en una terminal y no recibió `TUNNEL_TOKEN`; o se usó `sudo -E` en un sistema con `sudo-rs` (Ubuntu 26.04 y posteriores), que ignora `-E`. Ejecútalo en una terminal para que pida el token, o con `sudo --preserve-env=TUNNEL_TOKEN`. |
 | `websocket: bad handshake` al hacer `ssh`, y en el equipo `malformed HTTP status` en `journalctl -u cloudflared` | El nombre del SSH está publicado como `http://localhost:22`. Cámbialo a `ssh://localhost:22` en el panel (sección 8.1). |
 | «Add at least one AUD tag when Protect with Access is on» | La etiqueta AUD se pegó pero no se añadió: haz clic en el campo, pega y pulsa Enter hasta que quede como pastilla (sección 8.3). |
 | `Host key verification failed` en la primera conexión por el túnel | Tu PC no conoce aún la huella con el nombre nuevo. Verifícala y añádela (sección 8.5). |
@@ -230,7 +230,7 @@ Debe responder el nombre del equipo. Sin sesión de Access, `curl -I https://ssh
 
 ## Rotar el token
 
-Si el token se expuso: en el panel, **Tunnels → el túnel → Refresh token**, pega el nuevo en `/etc/cloudflared/cloudflared.env` (paso 4) y `sudo systemctl restart cloudflared`. El antiguo deja de valer al instante.
+Si el token se expuso: en el panel, **Tunnels → el túnel → Refresh token**. Después guarda el nuevo como en el paso 4, o vuelve a ejecutar el script, que lo pide y reescribe el archivo, y reinicia con `sudo systemctl restart cloudflared`. El antiguo deja de valer al instante.
 
 ## Desinstalar
 

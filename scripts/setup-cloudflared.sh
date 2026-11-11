@@ -8,9 +8,11 @@ set -euo pipefail
 # ajuste de kernel para QUIC y comprueba que el túnel conecta.
 #
 # Uso:
-#   export TUNNEL_TOKEN='<token del túnel>'
-#   sudo --preserve-env=TUNNEL_TOKEN bash scripts/setup-cloudflared.sh
+#   sudo bash scripts/setup-cloudflared.sh
 #
+# El script pide el token del túnel sin mostrarlo, así no queda en el historial de la terminal.
+# Para instalar sin preguntas (automatización), pásalo en la variable TUNNEL_TOKEN:
+#   sudo --preserve-env=TUNNEL_TOKEN bash scripts/setup-cloudflared.sh
 # --preserve-env=TUNNEL_TOKEN pasa solo el token a root. No uses «sudo -E»: el sudo-rs de Ubuntu 26.04 lo ignora.
 #
 # Vuelve a ejecutarse sin problema: cada paso deja el sistema igual si ya estaba hecho.
@@ -29,16 +31,26 @@ fail() {
 }
 
 check_prerequisites() {
-  [[ "${EUID}" -eq 0 ]] || fail "Ejecuta como root. Ejemplo: sudo --preserve-env=TUNNEL_TOKEN bash $0"
+  [[ "${EUID}" -eq 0 ]] || fail "Ejecuta como root: sudo bash $0"
   command -v apt-get >/dev/null || fail "Este runbook es para Debian o Ubuntu (necesita apt-get)."
   command -v systemctl >/dev/null || fail "Este runbook necesita systemd."
+  read_token
+}
+
+# El token llega en TUNNEL_TOKEN o se pide sin eco: nunca se escribe a la vista ni queda en el historial.
+read_token() {
+  if [[ -z "${TUNNEL_TOKEN:-}" && -t 0 ]]; then
+    read -rsp 'Pega el token del túnel y pulsa Enter (no se verá): ' TUNNEL_TOKEN
+    echo
+  fi
   if [[ -z "${TUNNEL_TOKEN:-}" ]]; then
-    echo "ERROR: Falta TUNNEL_TOKEN. Ejemplo:" >&2
-    echo "  export TUNNEL_TOKEN='<token del túnel>'" >&2
-    echo "  sudo --preserve-env=TUNNEL_TOKEN bash $0" >&2
-    echo "(Con «sudo -E» el token no llega en Ubuntu 26.04 y posteriores: su sudo-rs ignora -E.)" >&2
+    echo "ERROR: Falta el token del túnel." >&2
+    echo "  Ejecuta el script en una terminal para que lo pida: sudo bash $0" >&2
+    echo "  O pásalo en la variable TUNNEL_TOKEN: sudo --preserve-env=TUNNEL_TOKEN bash $0" >&2
+    echo "  (Con «sudo -E» la variable no llega en Ubuntu 26.04 y posteriores: su sudo-rs ignora -E.)" >&2
     exit 1
   fi
+  [[ "$TUNNEL_TOKEN" == eyJ* ]] || fail "Eso no parece un token de túnel: empieza por «eyJ». Cópialo de nuevo del panel."
 }
 
 # El paquete cloudflared no está en Debian ni en Ubuntu: hay que añadir el repositorio de Cloudflare.
