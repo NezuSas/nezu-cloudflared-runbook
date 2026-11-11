@@ -32,8 +32,10 @@ export TUNNEL_TOKEN='<token del túnel>'
 Instala y arranca el servicio:
 
 ```bash
-sudo -E bash scripts/setup-cloudflared.sh
+sudo --preserve-env=TUNNEL_TOKEN bash scripts/setup-cloudflared.sh
 ```
+
+`--preserve-env=TUNNEL_TOKEN` pasa a root solo el token. No uses `sudo -E`: el `sudo-rs` de Ubuntu 26.04 lo ignora sin avisar y el script se detiene diciendo que falta `TUNNEL_TOKEN`.
 
 Comprueba:
 

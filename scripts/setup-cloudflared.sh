@@ -9,7 +9,9 @@ set -euo pipefail
 #
 # Uso:
 #   export TUNNEL_TOKEN='<token del túnel>'
-#   sudo -E bash scripts/setup-cloudflared.sh
+#   sudo --preserve-env=TUNNEL_TOKEN bash scripts/setup-cloudflared.sh
+#
+# --preserve-env=TUNNEL_TOKEN pasa solo el token a root. No uses «sudo -E»: el sudo-rs de Ubuntu 26.04 lo ignora.
 #
 # Vuelve a ejecutarse sin problema: cada paso deja el sistema igual si ya estaba hecho.
 
@@ -27,13 +29,14 @@ fail() {
 }
 
 check_prerequisites() {
-  [[ "${EUID}" -eq 0 ]] || fail "Ejecuta como root. Ejemplo: sudo -E bash $0"
+  [[ "${EUID}" -eq 0 ]] || fail "Ejecuta como root. Ejemplo: sudo --preserve-env=TUNNEL_TOKEN bash $0"
   command -v apt-get >/dev/null || fail "Este runbook es para Debian o Ubuntu (necesita apt-get)."
   command -v systemctl >/dev/null || fail "Este runbook necesita systemd."
   if [[ -z "${TUNNEL_TOKEN:-}" ]]; then
     echo "ERROR: Falta TUNNEL_TOKEN. Ejemplo:" >&2
     echo "  export TUNNEL_TOKEN='<token del túnel>'" >&2
-    echo "  sudo -E bash $0" >&2
+    echo "  sudo --preserve-env=TUNNEL_TOKEN bash $0" >&2
+    echo "(Con «sudo -E» el token no llega en Ubuntu 26.04 y posteriores: su sudo-rs ignora -E.)" >&2
     exit 1
   fi
 }

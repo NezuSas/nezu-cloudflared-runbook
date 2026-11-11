@@ -2,6 +2,12 @@
 
 Formato de [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versiones según [SemVer](https://semver.org/lang/es/).
 
+## [1.0.1] - 2026-11-10
+
+### Corregido
+
+- En Ubuntu 26.04 la instalación se detenía con «Falta TUNNEL_TOKEN» aunque el token estuviera exportado: su `sudo-rs` ignora `sudo -E`. El README, la ayuda del script y sus mensajes de error usan ahora `sudo --preserve-env=TUNNEL_TOKEN`, que funciona con sudo y con sudo-rs y pasa a root solo el token. Encontrado al instalar el túnel en una Raspberry Pi 4 con Ubuntu 26.04 (arm64), donde el resto del runbook funcionó sin cambios.
+
 ## [1.0.0] - 2026-11-09
 
 Primera versión numerada.
@@ -27,4 +33,5 @@ Primera versión numerada.
 - El ajuste de kernel para QUIC se aplica antes de arrancar el servicio, para no reiniciarlo dos veces.
 - El manual separa en dos pasos el repositorio y la instalación, explica por qué el token no va en la línea de comandos y añade el error `Unable to locate package cloudflared` a los problemas frecuentes.
 
+[1.0.1]: https://github.com/NezuSas/nezu-cloudflared-runbook/releases/tag/v1.0.1
 [1.0.0]: https://github.com/NezuSas/nezu-cloudflared-runbook/releases/tag/v1.0.0
