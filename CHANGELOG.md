@@ -2,7 +2,7 @@
 
 Formato de [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versiones según [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.1.0] - 2026-11-12
 
 ### Añadido
 
@@ -49,5 +49,6 @@ Primera versión numerada.
 - El ajuste de kernel para QUIC se aplica antes de arrancar el servicio, para no reiniciarlo dos veces.
 - El manual separa en dos pasos el repositorio y la instalación, explica por qué el token no va en la línea de comandos y añade el error `Unable to locate package cloudflared` a los problemas frecuentes.
 
+[1.1.0]: https://github.com/NezuSas/nezu-cloudflared-runbook/releases/tag/v1.1.0
 [1.0.1]: https://github.com/NezuSas/nezu-cloudflared-runbook/releases/tag/v1.0.1
 [1.0.0]: https://github.com/NezuSas/nezu-cloudflared-runbook/releases/tag/v1.0.0
